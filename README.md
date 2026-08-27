@@ -2,6 +2,8 @@
 
 **Human-in-the-loop privacy automation powered by WebMCP.**
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnexora-assistant%2Fconsentos-webmcp&repository-name=consentos-webmcp&project-name=consentos-webmcp)
+
 ConsentOS is a WebMCP Challenge prototype for agent-managed privacy without agent-controlled consent. All account data in the demo is fictional and stored locally in the browser.
 
 ## Core idea
