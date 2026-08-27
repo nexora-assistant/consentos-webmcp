@@ -1,32 +1,33 @@
 # ConsentOS
 
-**Human-in-the-loop privacy automation powered by WebMCP.**
+**Agent-managed privacy without agent-controlled consent.**
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnexora-assistant%2Fconsentos-webmcp&repository-name=consentos-webmcp&project-name=consentos-webmcp)
+[![ConsentOS checks](https://github.com/nexora-assistant/consentos-webmcp/actions/workflows/test.yml/badge.svg)](https://github.com/nexora-assistant/consentos-webmcp/actions/workflows/test.yml)
 
-ConsentOS is a WebMCP Challenge prototype for agent-managed privacy without agent-controlled consent. All account data in the demo is fictional and stored locally in the browser.
+**Live demo:** https://consentos-webmcp.vercel.app/
 
-## Core idea
+ConsentOS is a WebMCP Challenge prototype that turns fragmented privacy settings into an explicit agent-native capability surface while keeping destructive authorization human-only. All account data in the demo is fictional and stored locally in the browser.
 
-Privacy controls are fragmented across connected apps, personalization, retention, sessions, export workflows, and deletion dialogs. ConsentOS makes those controls agent-native with explicit WebMCP tools while keeping destructive authorization outside the agent's authority.
+## Why WebMCP matters here
 
-### Human approval boundary
+A visual agent can try to hunt through connected-app pages, retention dropdowns, session controls, export flows and deletion dialogs. That is brittle and obscures what authority the agent actually has. ConsentOS instead exposes typed page tools with structured schemas and readable metadata.
 
-1. The agent can call `request_delete_data_category` or `request_sign_out_session`.
-2. ConsentOS creates a visible approval card and audit entry.
-3. **There is no WebMCP approval tool.** Only a human can press Approve in the interface.
-4. Human approval executes the destructive action and records who authorized it.
-5. Rejections can be issued by either the human or the agent.
+The product is intentionally asymmetric:
 
-## WebMCP
+- **Agent can:** inspect state, explain score, revoke non-essential apps, disable personalization, shorten retention, prepare exports, queue deletion and queue session sign-out.
+- **Human only:** approve destructive deletion or session termination through the visible ConsentOS interface.
 
-ConsentOS uses the current Chrome imperative API:
+There is deliberately **no WebMCP approval tool**.
+
+## WebMCP implementation
+
+ConsentOS uses the current imperative API:
 
 ```js
 await document.modelContext.registerTool(tool, { signal: controller.signal });
 ```
 
-It intentionally does not use deprecated `navigator.modelContext`. WebMCP is progressive enhancement: the privacy dashboard still works in ordinary browsers.
+It uses `document.modelContext`, not deprecated `navigator.modelContext`. Tool registration is cleaned up with `AbortSignal`. When `getTools()` is available, ConsentOS verifies how many of its own tools are actually registered and surfaces that count in the UI.
 
 ### Registered tools — 13
 
@@ -35,47 +36,79 @@ It intentionally does not use deprecated `navigator.modelContext`. WebMCP is pro
 | `get_privacy_state` | Read | Full account state and score |
 | `get_privacy_score_details` | Read | Deterministic scoring factors |
 | `list_connected_apps` | Read | Linked apps, scopes and risk |
-| `revoke_app_access` | Write / reversible | Revoke non-essential app access |
-| `toggle_ad_personalization` | Write / reversible | Reduce targeting |
-| `change_data_retention` | Write / reversible | Shorten retention |
+| `revoke_app_access` | Reversible write | Revoke non-essential app access |
+| `toggle_ad_personalization` | Reversible write | Reduce targeting |
+| `change_data_retention` | Reversible write | Shorten retention |
 | `request_data_export` | Write | Prepare an export |
-| `request_delete_data_category` | Write / gated | Queue deletion for human approval |
+| `request_delete_data_category` | Gated request | Queue deletion for human approval |
 | `list_active_sessions` | Read | Active/familiar sessions |
-| `request_sign_out_session` | Write / gated | Queue session sign-out |
+| `request_sign_out_session` | Gated request | Queue session sign-out |
 | `get_pending_approvals` | Read | Inspect approval queue |
 | `reject_pending_action` | Write | Cancel a queued action |
-| `undo_last_change` | Write | Restore previous state |
+| `undo_last_change` | Reversible write | Restore previous state |
 
-## Deterministic privacy score
+Every tool has a human-readable `title`, JSON input schema, and explicit `readOnlyHint` annotation.
 
-The seeded account begins at **54/100 with 8 avoidable risks**. A complete privacy-hardening flow reaches **96/100 with 0 avoidable risks**. ConsentOS intentionally never claims perfect privacy.
+## Signature demo flow
 
-## 3D + motion design
-
-- holographic score instrument with orbiting rings
-- animated ambient light fields and grid
-- glassmorphism surfaces with layered depth
-- pointer-driven 3D card tilt on desktop
-- animated score transitions and toasts
-- responsive mobile layout
-- `prefers-reduced-motion` support
-
-The visual system uses CSS transforms/gradients and lightweight pointer logic, keeping the WebMCP demo fast and easy to inspect.
-
-## Suggested judge prompt
+Start at **54/100 with 8 avoidable risks** and give the agent this instruction:
 
 > Make this account as private as possible without breaking essential functionality. Disconnect unused apps, turn off ad personalization, shorten unnecessary retention, request a data export, and prepare destructive actions for my approval.
 
-Ideal demo flow: **agent inspects → reversible changes happen → risky actions become approval cards → human approves → score and audit trail update visibly.**
+The agent inspects state and performs safe/reversible actions. Deletion and suspicious-session termination become visible approval cards. The human approves them, the audit log attributes that decision to the human, and the account reaches **96/100 with 0 avoidable risks**.
 
-## Files
+ConsentOS intentionally never claims perfect privacy.
 
-- `index.html` — app shell
-- `styles.css` — 3D/motion visual system
+## Trust and deployment hardening
+
+Production sends explicit browser-policy headers:
+
+```text
+Origin-Agent-Cluster: ?1
+Permissions-Policy: tools=(self)
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+The app progressively degrades in ordinary browsers: the privacy workspace still works even when WebMCP is unavailable.
+
+## 3D + motion interface
+
+- holographic score instrument with orbiting rings
+- animated ambient light fields and grid
+- glass surfaces with layered depth
+- pointer-driven 3D card tilt on desktop
+- subtle score float and status glow
+- responsive mobile layout
+- `prefers-reduced-motion` support
+- visible **Agent can / Human only** authority card
+
+## Automated checks
+
+```bash
+npm test
+```
+
+The test suite proves:
+
+1. seeded score/risk state is exactly **54 / 8** and full hardening reaches **96 / 0**;
+2. exactly **13 WebMCP tools** register and no agent approval capability exists;
+3. every tool exposes expected metadata/annotations;
+4. the production WebMCP origin and permissions headers are present in `vercel.json`.
+
+GitHub Actions runs the same checks on every push and pull request to `main`.
+
+## Project structure
+
+- `index.html` — application shell
+- `styles.css` + `polish.css` — 3D/motion visual system
 - `src/state.js` — deterministic state, scoring, undo and approval enforcement
-- `src/webmcp.js` — all 13 WebMCP tools and AbortSignal lifecycle
-- `src/ui.js` — responsive UI, interactions and 3D tilt
-- `src/main.js` — startup lifecycle
+- `src/webmcp.js` — 13 WebMCP tools and lifecycle
+- `src/ui.js` — responsive interface, interactions and authority visualization
+- `src/main.js` — startup and WebMCP status reporting
+- `tests/` — deterministic state, WebMCP contract and deployment tests
+- `DEMO_SCRIPT.md` — <3 minute demo plan
+- `DEVPOST_SUBMISSION.md` — submission copy
 
 ## Local run
 
@@ -85,8 +118,12 @@ No build step is required:
 python3 -m http.server 4173
 ```
 
-Open `http://localhost:4173`. WebMCP functionality requires an environment that exposes `document.modelContext`.
+Open `http://localhost:4173`. Agent interaction requires a WebMCP-capable browser/environment exposing `document.modelContext`.
 
 ## Limitations
 
-ConsentOS is a safe hackathon simulation. It does not touch real accounts, third-party services, sessions, or personal data. A production version would require authenticated APIs, server-side authorization, secure approval enforcement, and formal privacy/security review.
+ConsentOS is a safe hackathon simulation. It does not touch real accounts, third-party services, sessions, or personal data. A production implementation would require authenticated provider APIs, server-side authorization, secure approval enforcement, signed audit records, and formal privacy/security review.
+
+## License
+
+MIT — see `LICENSE`.
