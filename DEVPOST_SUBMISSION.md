@@ -3,6 +3,12 @@
 ## Tagline
 Agent-managed privacy without agent-controlled consent.
 
+## Public source
+https://github.com/nexora-assistant/consentos-webmcp
+
+## Live demo
+To be added after the Vercel production deployment.
+
 ## Inspiration
 Privacy settings are fragmented across connected apps, tracking controls, retention policies, active sessions, exports and deletion workflows. That is frustrating for humans and brittle for visual browser agents. We wanted to explore a more agent-native model without solving usability by giving an agent unlimited authority.
 
